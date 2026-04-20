@@ -62,5 +62,3 @@ while True:
     print(f" Last updated: {now}")
 
     time.sleep(REFRESH_RATE)
-
-    time.sleep(REFRESH_RATE)
