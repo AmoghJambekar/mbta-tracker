@@ -1,3 +1,4 @@
 requests
 pyserial
 python-dotenv
+colorama

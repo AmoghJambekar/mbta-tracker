@@ -1,7 +1,12 @@
 import requests
 import time
 from datetime import datetime, timezone
+from colorama import init, Fore, Style
 from config import API_KEY, BASE_URL, GREEN_LINE_STOP, BUS_39_STOP, REFRESH_RATE
+
+init(autoreset=True)
+
+DIVIDER = " " + "─" * 26
 
 def get_predictions(stop_id, route_id):
     url = f"{BASE_URL}/predictions"
@@ -25,7 +30,7 @@ def get_predictions(stop_id, route_id):
                 continue
             departure_dt = datetime.fromisoformat(departure)
             diff = (departure_dt - now).total_seconds() / 60
-            if diff >= 2:
+            if diff >= 0:
                 minutes.append(int(diff))
             if len(minutes) == 3:
                 break
@@ -36,13 +41,26 @@ def get_predictions(stop_id, route_id):
         print(f"API error: {e}")
         return []
 
+def format_time(minutes):
+    if not minutes:
+        return "No service"
+    if minutes[0] == 0:
+        return "ARR"
+    return f"{minutes[0]}min"
+
 while True:
     green = get_predictions(GREEN_LINE_STOP, "Green-E")
     bus = get_predictions(BUS_39_STOP, "39")
 
     now = datetime.now().strftime("%H:%M:%S")
-    print(f"\n[{now}]")
-    print(f"Prudential - GL-E - Heath Street:       {green[0]}min" if green else "Prudential - GL-E - Heath Street:       No predictions")
-    print(f"Huntington @ Prudential - 39 - Forest Hills: {bus[0]}min" if bus else "Huntington @ Prudential - 39 - Forest Hills: No predictions")
+
+    print(DIVIDER)
+    print(DIVIDER)
+    print(f" {Fore.GREEN}GL-E{Style.RESET_ALL}  > Heath St      {format_time(green)}")
+    print(f" {Fore.YELLOW}39{Style.RESET_ALL}    > Forest Hills  {format_time(bus)}")
+    print(DIVIDER)
+    print(f" Last updated: {now}")
+
+    time.sleep(REFRESH_RATE)
 
     time.sleep(REFRESH_RATE)
