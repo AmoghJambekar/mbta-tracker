@@ -1,43 +1,9 @@
-import requests
 import serial
 import time
-from datetime import datetime, timezone
-from config import API_KEY, BASE_URL, GREEN_LINE_STOP, BUS_39_STOP, REFRESH_RATE, SERIAL_PORT, BAUD_RATE
 
-def get_predictions(stop_id, route_id):
-    """Fetch next departure predictions from MBTA API for a given stop and route."""
-    url = f"{BASE_URL}/predictions"
-    params = {
-        "filter[stop]": stop_id,
-        "filter[route]": route_id,
-        "sort": "departure_time",
-        "api_key": API_KEY
-    }
+from config import GREEN_LINE_STOP, BUS_39_STOP, REFRESH_RATE, SERIAL_PORT, BAUD_RATE
+from mbta_client import get_predictions
 
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()["data"]
-
-        minutes = []
-        now = datetime.now(timezone.utc)
-
-        for prediction in data:
-            departure = prediction["attributes"].get("departure_time")
-            if not departure:
-                continue
-            departure_dt = datetime.fromisoformat(departure)
-            diff = (departure_dt - now).total_seconds() / 60
-            if diff >= 0:
-                minutes.append(int(diff))
-            if len(minutes) == 3:
-                break
-
-        return minutes
-
-    except Exception as e:
-        print(f"API error for stop {stop_id}: {e}")
-        return []
 
 def format_line(label, minutes):
     """Format a 16 character wide LCD line from a label and list of minutes."""
@@ -77,7 +43,7 @@ def main():
         print(f"Could not open serial port: {e}")
         return
 
-    print("Starting MBTA tracker — polling every {REFRESH_RATE}s")
+    print(f"Starting MBTA tracker — polling every {REFRESH_RATE}s")
 
     while True:
         print("\nFetching predictions...")

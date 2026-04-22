@@ -1,64 +1,63 @@
-import requests
+"""Console test harness for MBTA predictions (no serial hardware)."""
+
 import time
-from datetime import datetime, timezone
-from colorama import init, Fore, Style
-from config import API_KEY, BASE_URL, GREEN_LINE_STOP, BUS_39_STOP, REFRESH_RATE
+from datetime import datetime
+
+from colorama import Fore, Style, init
+
+from config import BUS_39_STOP, GREEN_LINE_STOP, REFRESH_RATE
+from mbta_client import get_predictions
 
 init(autoreset=True)
 
 DIVIDER = " " + "─" * 26
 
-def get_predictions(stop_id, route_id):
-    url = f"{BASE_URL}/predictions"
-    params = {
-        "filter[stop]": stop_id,
-        "filter[route]": route_id,
-        "sort": "departure_time",
-        "api_key": API_KEY
-    }
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()["data"]
+# Rows: (route_id, stop_id, Fore color, short label, destination)
+BOARD_ROWS = (
+    ("Green-E", GREEN_LINE_STOP, Fore.GREEN, "GL-E", "Heath St"),
+    ("39", BUS_39_STOP, Fore.YELLOW, "39", "Forest Hills"),
+)
 
-        minutes = []
-        now = datetime.now(timezone.utc)
 
-        for prediction in data:
-            departure = prediction["attributes"].get("departure_time")
-            if not departure:
-                continue
-            departure_dt = datetime.fromisoformat(departure)
-            diff = (departure_dt - now).total_seconds() / 60
-            if diff >= 0:
-                minutes.append(int(diff))
-            if len(minutes) == 3:
-                break
-
-        return minutes
-
-    except Exception as e:
-        print(f"API error: {e}")
-        return []
-
-def format_time(minutes):
+def format_next_arrival(minutes):
     if not minutes:
         return "No service"
     if minutes[0] == 0:
         return "ARR"
     return f"{minutes[0]}min"
 
-while True:
-    green = get_predictions(GREEN_LINE_STOP, "Green-E")
-    bus = get_predictions(BUS_39_STOP, "39")
 
+def _spaces_before_arrow(plain_label):
+    """Pad so `>` lines up with the original layout (1-space prefix + label + spaces = 7)."""
+    return max(1, 7 - (1 + len(plain_label)))
+
+
+def print_board(predictions_by_route):
     now = datetime.now().strftime("%H:%M:%S")
 
     print(DIVIDER)
     print(DIVIDER)
-    print(f" {Fore.GREEN}GL-E{Style.RESET_ALL}  > Heath St      {format_time(green)}")
-    print(f" {Fore.YELLOW}39{Style.RESET_ALL}    > Forest Hills  {format_time(bus)}")
+    for route_id, _, color, label, dest in BOARD_ROWS:
+        mins = predictions_by_route[route_id]
+        colored = f"{color}{label}{Style.RESET_ALL}"
+        pad = " " * _spaces_before_arrow(label)
+        print(f" {colored}{pad}> {dest:<12} {format_next_arrival(mins)}")
     print(DIVIDER)
     print(f" Last updated: {now}")
 
-    time.sleep(REFRESH_RATE)
+
+def fetch_predictions():
+    return {
+        route_id: get_predictions(stop_id, route_id)
+        for route_id, stop_id, *_ in BOARD_ROWS
+    }
+
+
+def main():
+    while True:
+        print_board(fetch_predictions())
+        time.sleep(REFRESH_RATE)
+
+
+if __name__ == "__main__":
+    main()
